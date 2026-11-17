@@ -75,6 +75,14 @@ table.det td:last-child{text-align:right;}
 .skin-tie td{background:#f5f3ec;}
 .circled{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:13px;}
 .err{font-size:12px;color:var(--red);display:none;margin-bottom:6px;}
+@media print{
+  .tabs,#resume-banner{display:none!important;}
+  .panel{display:none!important;}
+  #panel-summary{display:block!important;}
+  #export-print,#export-csv{display:none!important;}
+  body{padding:10px;}
+  .sum-card{break-inside:avoid;}
+}
 @media (prefers-color-scheme: dark){
   :root{
     --bg:#f5f3ee;--card:#fff;--border:#ddd8cc;--border-strong:#c7c1b0;
@@ -100,8 +108,6 @@ table.det td:last-child{text-align:right;}
 <div class="tabs">
   <button class="tab on" data-tab="setup">Setup</button>
   <button class="tab" data-tab="entry" disabled>Score Entry</button>
-  <button class="tab" data-tab="scorecard" disabled>Scorecard</button>
-  <button class="tab" data-tab="skins" disabled>Skins</button>
   <button class="tab" data-tab="group" disabled>Group</button>
   <button class="tab" data-tab="summary" disabled>Summary</button>
 </div>
@@ -114,9 +120,13 @@ table.det td:last-child{text-align:right;}
     <p style="font-size:11px;color:var(--muted);margin-top:4px;" id="daily-note"></p>
   </div>
   <div class="card">
-    <p class="muted" style="margin-bottom:4px;">Stroke index & par — <strong>Whidbey Golf Club</strong></p>
-    <div class="si-grid" id="si-front"></div>
-    <div class="si-grid" id="si-back"></div>
+    <p style="font-size:14px;font-weight:600;cursor:pointer;margin:0;display:flex;justify-content:space-between;align-items:center;" id="si-toggle">
+      <span>Whidbey Golf Club</span><span style="font-size:12px;font-weight:400;color:var(--muted);">Stroke index &amp; par ▸</span>
+    </p>
+    <div id="si-body" style="display:none;margin-top:10px;">
+      <div id="si-front" style="margin-bottom:8px;"></div>
+      <div id="si-back"></div>
+    </div>
   </div>
   <div class="card">
     <div class="row">
@@ -139,6 +149,7 @@ table.det td:last-child{text-align:right;}
         <label class="lbl" style="margin:0;">Track positives</label>
       </div>
     </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:6px;">$ per point, 9-0-0 and positives can be changed any time, even mid-round. Only tap Start round to begin a fresh round.</p>
     <button class="btn-primary" id="start-btn" style="margin-top:6px;">Start round</button>
   </div>
 </div>
@@ -157,18 +168,6 @@ table.det td:last-child{text-align:right;}
   <div id="sc-results"></div>
 </div>
 
-<!-- SCORECARD -->
-<div class="panel" id="panel-scorecard">
-  <p class="muted">Hole-by-hole — tap a player to expand</p>
-  <div id="card-wrap"></div>
-</div>
-
-<!-- SKINS -->
-<div class="panel" id="panel-skins">
-  <p class="muted">Net skins — full course handicap</p>
-  <div id="skins-wrap"></div>
-</div>
-
 <!-- GROUP SCORE -->
 <div class="panel" id="panel-group">
   <p class="muted">Group score — low gross & low net each hole</p>
@@ -177,6 +176,10 @@ table.det td:last-child{text-align:right;}
 
 <!-- SUMMARY -->
 <div class="panel" id="panel-summary">
+  <div style="display:flex;gap:8px;margin-bottom:12px;">
+    <button class="btn-sm" id="export-print" style="flex:1;background:var(--gold-bg);color:var(--gold);border-color:var(--gold);font-weight:600;">🖨 Print / Save PDF</button>
+    <button class="btn-sm" id="export-csv" style="flex:1;background:var(--gold-bg);color:var(--gold);border-color:var(--gold);font-weight:600;">⬇ Export CSV</button>
+  </div>
   <div class="sum-grid" id="sum-cards"></div>
   <div id="sum-detail"></div>
 </div>
@@ -186,7 +189,6 @@ table.det td:last-child{text-align:right;}
 (function(){
 const SI  = [5,15,7,13,3,1,17,9,11, 2,14,6,18,4,12,10,16,8];
 const PAR = [5,3,4,4,4,5,3,4,4,    4,4,5,3,4,4,4,3,5];
-const SN  = ['Dave Phay','Dave Smith','Denny','Germ','Gordon','Jeff','Matzen','Mike','Pat','Roger','Steve','Stone','TJ','Tom','Tracy'];
 const SK  = 'nine_point_state_v1';
 
 let S = {
@@ -345,6 +347,56 @@ function loadState(){
 }
 function clearSave(){ try{localStorage.removeItem(SK);}catch(e){} }
 
+// Keep the last 5 rounds so a mistaken New round / Start round can be undone
+const BK='nine_point_backups_v1', MAX_BK=5;
+function getBackups(){ try{return JSON.parse(localStorage.getItem(BK))||[];}catch(e){return [];} }
+function backupCurrentRound(){
+  try{
+    const raw=localStorage.getItem(SK); if(!raw) return;
+    const saved=JSON.parse(raw); if(!saved||!saved.started) return;
+    const b=getBackups(); b.unshift(saved);
+    if(b.length>MAX_BK) b.length=MAX_BK;
+    localStorage.setItem(BK,JSON.stringify(b));
+  }catch(e){}
+}
+function syncSetupInputs(){
+  renderPInputs(); renderSiGrid();
+  if(S.holes) document.getElementById('hole-count').value=S.holes;
+  if(S.ptVal!==undefined) document.getElementById('pt-val').value=S.ptVal;
+  document.getElementById('use-900').checked=!!S.use900;
+  document.getElementById('use-pos').checked=!!S.usePos;
+}
+function restoreBackup(i){
+  const b=getBackups()[i]; if(!b) return;
+  backupCurrentRound();            // don't lose the round being replaced
+  Object.assign(S,b); autosave();
+  syncSetupInputs(); unlockTabs(); go('entry');
+  const bn=document.getElementById('resume-banner'); if(bn) bn.remove();
+}
+function showBackupsModal(){
+  const backups=getBackups();
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  const m=document.createElement('div');
+  m.style.cssText='background:#fff;color:#111;border-radius:12px;padding:18px;width:100%;max-width:380px;max-height:80vh;overflow-y:auto;';
+  m.innerHTML='<p style="font-size:15px;font-weight:700;margin-bottom:12px;">Restore a previous round</p>';
+  if(!backups.length){ m.innerHTML+='<p style="font-size:13px;color:#6b7280;">No backups saved yet.</p>'; }
+  backups.forEach((b,i)=>{
+    const ds=b._savedAt?new Date(b._savedAt).toLocaleString():'Unknown date';
+    const names=(b.players||[]).map(p=>p.name).filter(Boolean).join(', ');
+    const r=document.createElement('div');
+    r.style.cssText='border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;';
+    r.innerHTML='<p style="font-size:13px;font-weight:600;margin-bottom:2px;">'+ds+'</p><p style="font-size:12px;color:#6b7280;">'+names+'</p>';
+    r.onclick=()=>{ ov.remove(); restoreBackup(i); };
+    m.appendChild(r);
+  });
+  const c=document.createElement('button'); c.textContent='Cancel'; c.style.cssText='width:100%;margin-top:8px;';
+  c.onclick=()=>ov.remove();
+  m.appendChild(c); ov.appendChild(m);
+  ov.onclick=e=>{ if(e.target===ov) ov.remove(); };
+  document.body.appendChild(ov);
+}
+
 // ── TAB ───────────────────────────────────────────────────────────────────────
 function go(tab){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
@@ -352,15 +404,13 @@ function go(tab){
   document.getElementById('panel-'+tab).classList.add('on');
   document.querySelector('[data-tab="'+tab+'"]').classList.add('on');
   if(tab==='entry')     renderEntry();
-  if(tab==='scorecard') renderCard();
-  if(tab==='skins')     renderSkins();
   if(tab==='group')     renderGroup();
   if(tab==='summary')   renderSummary();
 }
 document.querySelectorAll('.tab').forEach(t=>{ t.onclick=()=>{ if(!t.disabled) go(t.dataset.tab); }; });
 
 function unlockTabs(){
-  ['entry','scorecard','skins','group','summary'].forEach(t=>document.querySelector('[data-tab="'+t+'"]').disabled=false);
+  ['entry','group','summary'].forEach(t=>document.querySelector('[data-tab="'+t+'"]').disabled=false);
 }
 
 // ── SETUP ─────────────────────────────────────────────────────────────────────
@@ -368,18 +418,13 @@ function renderPInputs(){
   const c=document.getElementById('p-inputs'); c.innerHTML='';
   S.players.forEach((p,i)=>{
     const row=document.createElement('div'); row.className='p-row';
-    const nw=document.createElement('div'); nw.style='flex:2;display:flex;gap:5px;';
-    const sel=document.createElement('select'); sel.style='flex:1;';
-    const isSt=SN.includes(p.name);
-    sel.innerHTML='<option value="">— pick —</option>'
-      +SN.map(n=>'<option value="'+n+'"'+(p.name===n?' selected':'')+'>'+n+'</option>').join('')
-      +'<option value="__other__"'+(!isSt&&p.name?' selected':'')+'>Other…</option>';
-    const ni=document.createElement('input'); ni.type='text'; ni.placeholder='Type name';
-    ni.style='flex:1;display:'+(!isSt&&p.name?'block':'none');
-    ni.value=!isSt?p.name:'';
-    sel.onchange=e=>{ const v=e.target.value; if(v==='__other__'){ni.style.display='block';ni.focus();S.players[i].name=ni.value;}else{ni.style.display='none';S.players[i].name=v;} renderDN(); };
+    const nw=document.createElement('div'); nw.style='flex:2;display:flex;gap:6px;align-items:center;';
+    const num=document.createElement('span'); num.textContent=(i+1)+'.';
+    num.style='font-size:13px;font-weight:700;color:var(--muted);min-width:18px;';
+    const ni=document.createElement('input'); ni.type='text'; ni.placeholder='Player '+(i+1)+' name';
+    ni.style='flex:1;'; ni.value=p.name||'';
     ni.oninput=e=>{ S.players[i].name=e.target.value; renderDN(); };
-    nw.appendChild(sel); nw.appendChild(ni);
+    nw.appendChild(num); nw.appendChild(ni);
     const hw=document.createElement('div'); hw.className='hw';
     const hl=document.createElement('label'); hl.className='lbl'; hl.textContent='HCP';
     const hi=document.createElement('input'); hi.type='number'; hi.step='0.1'; hi.value=p.hcp;
@@ -396,21 +441,63 @@ function renderDN(){
 renderPInputs();
 
 function renderSiGrid(){
-  ['front','back'].forEach(side=>{
+  ['front','back'].forEach((side,half)=>{
     const el=document.getElementById('si-'+side); el.innerHTML='';
-    const[a,b]=side==='front'?[1,9]:[10,18];
-    for(let h=a;h<=b;h++){
-      const cell=document.createElement('div'); cell.className='si-cell';
-      const lab=document.createElement('label'); lab.textContent='H'+h+' p'+S.par[h-1];
-      const inp=document.createElement('input'); inp.type='number'; inp.min='1'; inp.max='18'; inp.value=S.si[h-1];
-      inp.oninput=e=>{S.si[h-1]=+e.target.value||h;};
-      cell.appendChild(lab); cell.appendChild(inp); el.appendChild(cell);
-    }
+    const table=document.createElement('table');
+    table.style.cssText='width:100%;border-collapse:collapse;font-size:11px;';
+    const rows=[
+      {label:'H',  vals:Array.from({length:9},(_,i)=>half*9+i+1), editable:false, color:'var(--muted)', bold:true},
+      {label:'SI', vals:Array.from({length:9},(_,i)=>S.si[half*9+i]),  editable:true, field:'si',  color:'var(--text)', bold:false, max:18},
+      {label:'Par',vals:Array.from({length:9},(_,i)=>S.par[half*9+i]), editable:true, field:'par', color:'var(--accent)', bold:true, max:6},
+    ];
+    rows.forEach(({label,vals,editable,field,color,bold,max})=>{
+      const tr=document.createElement('tr');
+      const th=document.createElement('td');
+      th.style.cssText='font-size:10px;font-weight:700;color:var(--muted);padding:3px 6px 3px 0;white-space:nowrap;';
+      th.textContent=label; tr.appendChild(th);
+      vals.forEach((v,col)=>{
+        const holeIdx=half*9+col;
+        const td=document.createElement('td'); td.style.cssText='padding:2px;';
+        if(editable){
+          const inp=document.createElement('input');
+          inp.type='number'; inp.min='1'; inp.max=String(max); inp.value=v; inp.setAttribute('inputmode','numeric');
+          inp.style.cssText='width:100%;text-align:center;padding:2px 1px;font-size:11px;font-weight:'+(bold?'700':'400')+';color:'+color+';border:1px solid var(--border);border-radius:3px;';
+          inp.oninput=e=>{ S[field][holeIdx]=+e.target.value||v; autosave(); };
+          td.appendChild(inp);
+        } else {
+          td.style.cssText+='text-align:center;border:1px solid var(--border);border-radius:3px;font-weight:'+(bold?'700':'400')+';color:'+color+';padding:3px 2px;';
+          td.textContent=v;
+        }
+        tr.appendChild(td);
+      });
+      table.appendChild(tr);
+    });
+    el.appendChild(table);
   });
 }
 renderSiGrid();
+document.getElementById('si-toggle').onclick=()=>{
+  const body=document.getElementById('si-body');
+  const lbl=document.querySelector('#si-toggle span:last-child');
+  const open=body.style.display!=='none';
+  body.style.display=open?'none':'block';
+  lbl.textContent='Stroke index & par '+(open?'▸':'▴');
+};
+
+// Settings can be changed any time (even mid-round) without restarting
+document.getElementById('pt-val').oninput=e=>{
+  const v=parseFloat(e.target.value);
+  if(S.started&&!isNaN(v)){ S.ptVal=v; autosave(); }
+};
+document.getElementById('use-900').onchange=e=>{ if(S.started){ S.use900=e.target.checked; autosave(); } };
+document.getElementById('use-pos').onchange=e=>{ if(S.started){ S.usePos=e.target.checked; autosave(); } };
 
 document.getElementById('start-btn').onclick=()=>{
+  const hasScores=S.started&&S.scores&&Object.keys(S.scores).some(h=>S.scores[h]&&Object.keys(S.scores[h]).length);
+  if(hasScores){
+    if(!confirm('A round is already in progress. Start a new round? The current round will be backed up and can be restored.')) return;
+    backupCurrentRound();
+  }
   S.holes=+document.getElementById('hole-count').value;
   S.ptVal=+document.getElementById('pt-val').value;
   S.use900=document.getElementById('use-900').checked;
@@ -423,7 +510,7 @@ document.getElementById('start-btn').onclick=()=>{
 document.getElementById('sc-prev').onclick=()=>{ if(S.curHole>1){S.curHole--;renderEntry();} };
 document.getElementById('sc-next').onclick=()=>{
   if(S.curHole<S.holes){S.curHole++;renderEntry();}
-  else go('skins');
+  else go('summary');
 };
 
 function renderEntry(){
@@ -558,64 +645,111 @@ function renderHoleResult(){
   c.innerHTML=html;
 }
 
-// ── SCORECARD ─────────────────────────────────────────────────────────────────
-function renderCard(){
-  const nms=ns(), wrap=document.getElementById('card-wrap'); wrap.innerHTML='';
-  nms.forEach((nm,i)=>{
-    const id='cp-'+i;
-    const div=document.createElement('div'); div.className='card'; div.style.marginBottom='8px';
-    let gSum=0,nSum=0,gFront=0,nFront=0,gBack=0,nBack=0,played=0,fComp=true,bComp=true;
-    for(let h=1;h<=S.holes;h++){
-      const g=getGross(h,i),net=dailyNet(i,h),par=S.par[h-1];
-      if(g!==null){gSum+=(g==='X')?par+2:g;nSum+=net?net.val:0;played++;
-        if(h<=9){gFront+=(g==='X')?par+2:g;nFront+=net?net.val:0;}
-        else{gBack+=(g==='X')?par+2:g;nBack+=net?net.val:0;}}
-      else{if(h<=9)fComp=false;else bComp=false;}
-    }
-    const summary=played>0?'Gross '+gSum+' · Net '+nSum:'No scores yet';
-    const hdr=document.createElement('p');
-    hdr.style.cssText='font-size:14px;font-weight:600;cursor:pointer;margin:0;display:flex;justify-content:space-between;align-items:center;';
-    hdr.innerHTML='<span>'+nm+'</span><span style="font-size:12px;font-weight:400;color:var(--muted)">'+summary+' ▸</span>';
-    hdr.onclick=()=>{ const b=document.getElementById(id); const op=b.style.display!=='none'; b.style.display=op?'none':'block'; hdr.querySelector('span:last-child').textContent=(op?summary+' ▸':summary+' ▴'); };
-    div.appendChild(hdr);
-    const body=document.createElement('div'); body.id=id; body.style.display='none'; body.style.marginTop='10px';
-    let html='<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr style="border-bottom:1px solid var(--border)"><th style="padding:4px;text-align:left;font-size:11px;color:var(--muted)">H</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Par</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Gross</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Net</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Pts</th></tr>';
-    for(let h=1;h<=S.holes;h++){
-      const g=getGross(h,i),net=dailyNet(i,h),par=S.par[h-1];
-      const pts=holePoints(h);
-      const gDisp=g===null?'—':(g==='X'?'<span style="color:var(--red)">X</span>':g);
-      const nDisp=net===null?'—':net.val+(net.x?'<sup style="font-size:9px;color:var(--red)">X</sup>':'');
-      const pDisp=pts?pts[i]:'—';
-      let gDisp2=gDisp;
-      if(g!==null&&g!=='X'){
-        const diff=g-par;
-        if(diff<=-2) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:2px solid var(--green);"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:12px;">'+g+'</span></span>';
-        else if(diff===-1) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:13px;">'+g+'</span>';
-        else if(diff===1) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:2px solid var(--muted);color:var(--muted);font-size:13px;">'+g+'</span>';
-        else if(diff>=2) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:2px solid var(--red);"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid var(--red);color:var(--red);font-size:12px;">'+g+'</span></span>';
-      }
-      const ptsColor=pDisp===9||pDisp===5?'var(--green)':pDisp===1||pDisp===0?'var(--red)':'var(--text)';
-      html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px;font-size:12px;color:var(--muted)">'+h+'</td><td style="padding:4px;text-align:center;color:var(--muted)">'+par+'</td><td style="padding:4px;text-align:center;">'+gDisp2+'</td><td style="padding:4px;text-align:center;">'+nDisp+'</td><td style="padding:4px;text-align:center;font-weight:700;color:'+ptsColor+'">'+pDisp+'</td></tr>';
-      if(h===9&&S.holes===18){
-        const fPar=S.par.slice(0,9).reduce((a,b)=>a+b,0);
-        html+='<tr style="border-top:2px solid var(--border-strong);border-bottom:2px solid var(--border-strong);background:#f5f3ee;font-weight:700;"><td style="padding:5px 4px;font-size:12px;">OUT</td><td style="padding:5px 4px;text-align:center;">'+fPar+'</td><td style="padding:5px 4px;text-align:center;">'+(fComp?gFront:'—')+'</td><td style="padding:5px 4px;text-align:center;">'+(fComp?nFront:'—')+'</td><td></td></tr>';
-      }
-    }
-    if(S.holes===18){
-      const bPar=S.par.slice(9,18).reduce((a,b)=>a+b,0);
-      html+='<tr style="border-top:2px solid var(--border-strong);border-bottom:1px solid var(--border);background:#f5f3ee;font-weight:700;"><td style="padding:5px 4px;font-size:12px;">IN</td><td style="padding:5px 4px;text-align:center;">'+bPar+'</td><td style="padding:5px 4px;text-align:center;">'+(bComp?gBack:'—')+'</td><td style="padding:5px 4px;text-align:center;">'+(bComp?nBack:'—')+'</td><td></td></tr>';
-    }
-    const tPar=S.par.slice(0,S.holes).reduce((a,b)=>a+b,0);
-    const tComp=S.holes===9?fComp:(fComp&&bComp);
-    html+='<tr style="border-top:2px solid var(--border-strong);font-weight:700;background:#eae8e2;"><td style="padding:5px 4px;font-size:12px;">TOTAL</td><td style="padding:5px 4px;text-align:center;">'+tPar+'</td><td style="padding:5px 4px;text-align:center;">'+(tComp?gSum:'—')+'</td><td style="padding:5px 4px;text-align:center;">'+(tComp?nSum:'—')+'</td><td></td></tr>';
-    html+='</table>';
-    body.innerHTML=html; div.appendChild(body); wrap.appendChild(div);
+// ── SCORECARD (combined table, shown inside Summary) ───────────────────────────
+function renderCardInto(container){
+  const nms=ns();
+
+  function gDisp2(g,par){
+    if(g===null) return '—';
+    if(g==='X') return '<span style="color:var(--red)">X</span>';
+    const diff=g-par;
+    if(diff<=-2) return '<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid var(--green);"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:11px;">'+g+'</span></span>';
+    if(diff===-1) return '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:12px;">'+g+'</span>';
+    if(diff===1) return '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid var(--muted);color:var(--muted);font-size:12px;">'+g+'</span>';
+    if(diff>=2) return '<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border:2px solid var(--red);"><span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid var(--red);color:var(--red);font-size:11px;">'+g+'</span></span>';
+    return g;
+  }
+
+  const card=document.createElement('div'); card.className='card';
+  let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+
+  // Header: H, Par, then Gross/Net for each player
+  html+='<tr style="border-bottom:2px solid var(--border-strong);">'
+    +'<th style="padding:3px 4px;text-align:left;font-size:10px;color:var(--muted);">H</th>'
+    +'<th style="padding:3px 4px;text-align:center;font-size:10px;color:var(--muted);">Par</th>';
+  nms.forEach(nm=>{
+    html+='<th colspan="2" style="padding:3px 4px;text-align:center;font-size:10px;color:var(--muted);border-left:1px solid var(--border);">'+nm+'</th>';
   });
+  html+='</tr>';
+
+  // Sub-header: Gross/Net labels
+  html+='<tr style="border-bottom:1px solid var(--border);">'
+    +'<th style="padding:2px 4px;"></th><th style="padding:2px 4px;"></th>';
+  nms.forEach(()=>{
+    html+='<th style="padding:2px 4px;text-align:center;font-size:9px;color:var(--muted);border-left:1px solid var(--border);">Grs</th>'
+      +'<th style="padding:2px 4px;text-align:center;font-size:9px;color:var(--muted);">Net</th>';
+  });
+  html+='</tr>';
+
+  // Track totals
+  const gFront=Array(nms.length).fill(0), nFront=Array(nms.length).fill(0);
+  const gBack=Array(nms.length).fill(0), nBack=Array(nms.length).fill(0);
+  const gTotal=Array(nms.length).fill(0), nTotal=Array(nms.length).fill(0);
+  const fComp=Array(nms.length).fill(true), bComp=Array(nms.length).fill(true);
+
+  for(let h=1;h<=S.holes;h++){
+    const par=S.par[h-1];
+    html+='<tr style="border-bottom:1px solid var(--border);">'
+      +'<td style="padding:4px;color:var(--muted);font-size:11px;">'+h+'</td>'
+      +'<td style="padding:4px;text-align:center;color:var(--muted);">'+par+'</td>';
+    nms.forEach((_,i)=>{
+      const g=getGross(h,i), net=dailyNet(i,h);
+      const gD=gDisp2(g,par);
+      const nD=net===null?'—':net.val+(net.x?'<sup style="font-size:8px;color:var(--red)">X</sup>':'');
+      html+='<td style="padding:4px;text-align:center;border-left:1px solid var(--border);">'+gD+'</td>'
+        +'<td style="padding:4px;text-align:center;color:var(--muted);">'+nD+'</td>';
+      if(g!==null){
+        const gV=(g==='X')?par+2:g, nV=net?net.val:0;
+        gTotal[i]+=gV; nTotal[i]+=nV;
+        if(h<=9){gFront[i]+=gV;nFront[i]+=nV;}else{gBack[i]+=gV;nBack[i]+=nV;}
+      } else {
+        if(h<=9) fComp[i]=false; else bComp[i]=false;
+      }
+    });
+    html+='</tr>';
+
+    if(h===9&&S.holes===18){
+      const fPar=S.par.slice(0,9).reduce((a,b)=>a+b,0);
+      html+='<tr style="border-top:2px solid var(--border-strong);border-bottom:2px solid var(--border-strong);background:#f5f3ee;font-weight:700;">'
+        +'<td style="padding:4px;font-size:11px;">OUT</td>'
+        +'<td style="padding:4px;text-align:center;">'+fPar+'</td>';
+      nms.forEach((_,i)=>{
+        html+='<td style="padding:4px;text-align:center;border-left:1px solid var(--border);">'+(fComp[i]?gFront[i]:'—')+'</td>'
+          +'<td style="padding:4px;text-align:center;">'+(fComp[i]?nFront[i]:'—')+'</td>';
+      });
+      html+='</tr>';
+    }
+  }
+
+  if(S.holes===18){
+    const bPar=S.par.slice(9,18).reduce((a,b)=>a+b,0);
+    html+='<tr style="border-top:2px solid var(--border-strong);border-bottom:1px solid var(--border);background:#f5f3ee;font-weight:700;">'
+      +'<td style="padding:4px;font-size:11px;">IN</td>'
+      +'<td style="padding:4px;text-align:center;">'+bPar+'</td>';
+    nms.forEach((_,i)=>{
+      html+='<td style="padding:4px;text-align:center;border-left:1px solid var(--border);">'+(bComp[i]?gBack[i]:'—')+'</td>'
+        +'<td style="padding:4px;text-align:center;">'+(bComp[i]?nBack[i]:'—')+'</td>';
+    });
+    html+='</tr>';
+  }
+
+  const tPar=S.par.slice(0,S.holes).reduce((a,b)=>a+b,0);
+  html+='<tr style="border-top:2px solid var(--border-strong);font-weight:700;background:#eae8e2;">'
+    +'<td style="padding:4px;font-size:11px;">TOT</td>'
+    +'<td style="padding:4px;text-align:center;">'+tPar+'</td>';
+  nms.forEach((_,i)=>{
+    const allDone=fComp[i]&&bComp[i];
+    html+='<td style="padding:4px;text-align:center;border-left:1px solid var(--border);">'+(allDone?gTotal[i]:'—')+'</td>'
+      +'<td style="padding:4px;text-align:center;">'+(allDone?nTotal[i]:'—')+'</td>';
+  });
+  html+='</tr></table></div>';
+  card.innerHTML=html;
+  container.appendChild(card);
 }
 
 // ── SKINS ─────────────────────────────────────────────────────────────────────
-function renderSkins(){
-  const nms=ns(), wrap=document.getElementById('skins-wrap');
+function renderSkinsInto(container){
+  const nms=ns();
   let html='<div style="overflow-x:auto"><table class="skin-tbl"><tr><th>H</th><th>Par</th>';
   nms.forEach(nm=>html+='<th>'+nm+'</th>');
   html+='<th>Low</th><th>Winner</th></tr>';
@@ -645,7 +779,7 @@ function renderSkins(){
     html+='<td style="text-align:center;font-weight:'+(isW?700:400)+'">'+dL+'</td><td>'+(isW?'<strong>'+winners[0]+'</strong>':isTie?'TIED':'—')+'</td></tr>';
   }
   html+='</table></div>';
-  wrap.innerHTML=html;
+  container.innerHTML=html;
 }
 
 // ── GROUP SCORE ───────────────────────────────────────────────────────────────
@@ -820,31 +954,168 @@ function renderSummary(){
     html+='<p style="font-size:12px;color:var(--muted);margin-top:4px;">* Positives are included in points total at $'+S.ptVal+' per point.</p>';
   }
 
-  det.innerHTML=html;
+  det.innerHTML='';
+  function addSection(label,renderInto){
+    const btn=document.createElement('button');
+    btn.style.cssText='width:100%;text-align:left;padding:10px 13px;font-size:14px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;';
+    btn.innerHTML=label+' <span>▸</span>';
+    const body=document.createElement('div');
+    body.className='sum-collapse'; body.style.display='none'; body.style.marginBottom='10px';
+    renderInto(body);
+    btn.onclick=()=>{
+      const open=body.style.display!=='none';
+      body.style.display=open?'none':'block';
+      btn.querySelector('span').textContent=open?'▸':'▴';
+    };
+    det.appendChild(btn); det.appendChild(body);
+  }
+  addSection('📋 Scorecard',renderCardInto);
+  addSection('🏌️ Skins',renderSkinsInto);
+  const rest=document.createElement('div'); rest.innerHTML=html; det.appendChild(rest);
 }
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+document.getElementById('export-print').onclick=()=>{
+  // Open the Scorecard and Skins sections so they are included, then restore
+  const bodies=[...document.querySelectorAll('#sum-detail .sum-collapse')];
+  const prev=bodies.map(b=>b.style.display);
+  bodies.forEach(b=>b.style.display='block');
+  const restore=()=>{ bodies.forEach((b,i)=>b.style.display=prev[i]); window.removeEventListener('afterprint',restore); };
+  window.addEventListener('afterprint',restore);
+  setTimeout(restore,15000);
+  window.print();
+};
+
+// Group score for one hole (low gross and low net must come from different players)
+function groupLows(h){
+  const nms=ns(), par=S.par[h-1];
+  const grosses=nms.map((_,i)=>{const g=getGross(h,i);return g===null?null:(g==='X'?par+2:g);});
+  const nets=nms.map((_,i)=>skinNet(i,h));
+  if(!grosses.every(v=>v!==null)||!nets.every(v=>v!==null)) return null;
+  const lowG=Math.min(...grosses), lowGIdx=grosses.indexOf(lowG);
+  const sorted=nets.map((v,i)=>({v,i})).sort((a,b)=>a.v-b.v);
+  const other=sorted.find(e=>e.i!==lowGIdx);
+  const lowN=sorted[0].i!==lowGIdx?sorted[0].v:(other?other.v:sorted[0].v);
+  return {lowG,lowN};
+}
+
+document.getElementById('export-csv').onclick=()=>{
+  const nms=ns(), pts=runningPoints(), money=settleMoney();
+  const rows=[];
+  rows.push(['9-POINT GAME','Whidbey Golf Club']);
+  rows.push(['$ per point',S.ptVal,'9-0-0 rule',S.use900?'on':'off','Positives',S.usePos?'on':'off']);
+  rows.push([]);
+
+  // Scorecard
+  rows.push(['SCORECARD']);
+  const hdr=['Hole','Par','SI'];
+  nms.forEach(nm=>hdr.push(nm+' Gross',nm+' Net',nm+' Pos',nm+' Pts'));
+  rows.push(hdr);
+  for(let h=1;h<=S.holes;h++){
+    const row=[h,S.par[h-1],S.si[h-1]];
+    const hp=holePoints(h);
+    nms.forEach((_,i)=>{
+      const g=getGross(h,i), net=dailyNet(i,h);
+      const pos=(S.usePos&&S.scores[h])?(+(S.scores[h].pos[i])||0):'';
+      row.push(g===null?'':g, net===null?'':net.val+(net.x?' (X)':''), pos, hp?hp[i]:'');
+    });
+    rows.push(row);
+  }
+  rows.push([]);
+
+  // Skins
+  rows.push(['SKINS (full course handicap)']);
+  const sh=['Hole','Par']; nms.forEach(nm=>sh.push(nm+' Net')); sh.push('Low Net','Winner');
+  rows.push(sh);
+  for(let h=1;h<=S.holes;h++){
+    const nets=nms.map((_,i)=>skinNet(i,h)), xs=nms.map((_,i)=>isX(h,i));
+    const row=[h,S.par[h-1]];
+    nets.forEach((v,i)=>row.push(v===null?'':v+(xs[i]?' X':'')));
+    if(nets.every(v=>v!==null)){
+      const elig=nets.filter((v,i)=>!xs[i]);
+      const low=elig.length?Math.min(...elig):null;
+      const w=low!==null?nms.filter((_,i)=>!xs[i]&&nets[i]===low):[];
+      row.push(low===null?'':low, w.length===1?w[0]:w.length>1?'TIED':'');
+    } else row.push('','Incomplete');
+    rows.push(row);
+  }
+  rows.push([]);
+
+  // Group score
+  rows.push(['GROUP SCORE']);
+  rows.push(['Hole','Par','Group Par','Low Gross','Low Net']);
+  for(let h=1;h<=S.holes;h++){
+    const g=groupLows(h);
+    rows.push([h,S.par[h-1],S.par[h-1]*2,g?g.lowG:'',g?g.lowN:'']);
+  }
+  rows.push([]);
+
+  // Final
+  rows.push(['FINAL']);
+  rows.push(['Player','Points','Money']);
+  nms.forEach((nm,i)=>rows.push([nm,pts[i],(money[i]>=0?'+':'')+money[i].toFixed(2)]));
+
+  const csv=rows.map(r=>r.map(c=>{
+    const t=String(c===null||c===undefined?'':c);
+    return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
+  }).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const d=new Date(), p2=n=>String(n).padStart(2,'0');
+  a.href=url; a.download='nine_point_'+d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 
 // ── RESUME BANNER ─────────────────────────────────────────────────────────────
 (function(){
+  const wrap=document.querySelector('.wrap'), tabs=document.querySelector('.tabs');
   if(loadState()){
-    unlockTabs();
-    const banner=document.createElement('div');
-    banner.style.cssText='background:var(--gold-bg);border:1px solid var(--gold);border-radius:8px;padding:10px 13px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:7px;';
-    const msg=document.createElement('span'); msg.style.cssText='font-size:13px;color:var(--gold);font-weight:600;';
+    syncSetupInputs(); unlockTabs();
+    const banner=document.createElement('div'); banner.id='resume-banner';
+    banner.style.cssText='background:var(--gold-bg);border:1px solid var(--gold);border-radius:8px;padding:10px 13px;margin-bottom:11px;';
+    const msg=document.createElement('p'); msg.style.cssText='font-size:13px;color:var(--gold);font-weight:600;margin-bottom:8px;';
     const ds=S._savedAt?new Date(S._savedAt).toLocaleString():'';
-    msg.textContent='⏱ Round in progress'+(ds?' · '+ds:'')+'. Resume or start new?';
-    const bR=document.createElement('div'); bR.style.cssText='display:flex;gap:6px;';
+    msg.textContent='⏱ Round in progress'+(ds?' · '+ds:'');
+    const bR=document.createElement('div'); bR.style.cssText='display:flex;gap:6px;flex-wrap:wrap;';
     const rB=document.createElement('button'); rB.textContent='Resume';
     rB.style.cssText='font-size:12px;padding:5px 10px;background:var(--gold-bg);color:var(--gold);border-color:var(--gold);font-weight:600;';
     rB.onclick=()=>{ banner.remove(); go('entry'); };
     const nB=document.createElement('button'); nB.textContent='New round'; nB.style.cssText='font-size:12px;padding:5px 10px;';
     nB.onclick=()=>{
-      clearSave();
-      Object.assign(S,{players:[{name:'',hcp:0},{name:'',hcp:0},{name:'',hcp:0}],si:SI.slice(),par:PAR.slice(),holes:18,ptVal:0.25,use900:false,usePos:false,started:false,scores:{},curHole:1});
-      ['entry','scorecard','skins','group','summary'].forEach(t=>document.querySelector('[data-tab="'+t+'"]').disabled=true);
-      go('setup'); renderPInputs(); renderSiGrid(); banner.remove();
+      const conf=document.createElement('div');
+      conf.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+      const box=document.createElement('div');
+      box.style.cssText='background:#fff;color:#111;border-radius:12px;padding:20px;width:100%;max-width:320px;';
+      box.innerHTML='<p style="font-size:15px;font-weight:700;margin-bottom:6px;">Start a new round?</p>'
+        +'<p style="font-size:13px;color:#6b7280;margin-bottom:16px;">Your current round will be backed up and can be restored if needed.</p>';
+      const bb=document.createElement('div'); bb.style.cssText='display:flex;gap:8px;';
+      const cB=document.createElement('button'); cB.textContent='Cancel'; cB.style.cssText='flex:1;'; cB.onclick=()=>conf.remove();
+      const yB=document.createElement('button'); yB.textContent='Start new round';
+      yB.style.cssText='flex:1;background:#b91c1c;color:#fff;border-color:#b91c1c;font-weight:600;';
+      yB.onclick=()=>{
+        conf.remove(); backupCurrentRound(); clearSave();
+        Object.assign(S,{players:[{name:'',hcp:0},{name:'',hcp:0},{name:'',hcp:0}],si:SI.slice(),par:PAR.slice(),holes:18,ptVal:0.25,use900:false,usePos:false,started:false,scores:{},curHole:1});
+        ['entry','group','summary'].forEach(t=>document.querySelector('[data-tab="'+t+'"]').disabled=true);
+        go('setup'); syncSetupInputs(); banner.remove();
+      };
+      bb.appendChild(cB); bb.appendChild(yB); box.appendChild(bb); conf.appendChild(box);
+      conf.onclick=e=>{ if(e.target===conf) conf.remove(); };
+      document.body.appendChild(conf);
     };
-    bR.appendChild(rB); bR.appendChild(nB); banner.appendChild(msg); banner.appendChild(bR);
-    document.querySelector('.wrap').insertBefore(banner,document.querySelector('.tabs').nextSibling);
+    const xB=document.createElement('button'); xB.textContent='Restore old round'; xB.style.cssText='font-size:12px;padding:5px 10px;';
+    xB.onclick=()=>showBackupsModal();
+    bR.appendChild(rB); bR.appendChild(nB); bR.appendChild(xB);
+    banner.appendChild(msg); banner.appendChild(bR);
+    wrap.insertBefore(banner,tabs.nextSibling);
+  } else if(getBackups().length){
+    const rb=document.createElement('div'); rb.id='resume-banner';
+    rb.style.cssText='background:#f5f3ee;border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;gap:7px;';
+    rb.innerHTML='<span style="font-size:13px;color:var(--muted);">No active round.</span>';
+    const rbb=document.createElement('button'); rbb.textContent='Restore previous round'; rbb.style.cssText='font-size:12px;padding:5px 10px;';
+    rbb.onclick=()=>showBackupsModal(); rb.appendChild(rbb);
+    wrap.insertBefore(rb,tabs.nextSibling);
   }
 })();
 
