@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>9-Point Game</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="9-Point">
+<meta name="theme-color" content="#1f5c4a">
+<meta name="color-scheme" content="light only">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%231f5c4a'/%3E%3Ctext x='90' y='125' font-size='100' text-anchor='middle' font-family='Arial'%3E9%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f5f3ee;--card:#fff;--border:#ddd8cc;--border-strong:#c7c1b0;
+  --text:#1f2420;--muted:#6b6b63;
+  --green:#2f6e4d;--green-bg:#e6f0e9;
+  --red:#a23b2f;--red-bg:#f5e8e5;
+  --accent:#1f5c4a;--accent-bg:#e3efe9;
+  --gold:#8a6a1f;--gold-bg:#f3ecdb;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f3ee !important;color:#1f2420 !important;padding:16px 12px max(80px,calc(80px + env(safe-area-inset-bottom)));padding-top:env(safe-area-inset-top);}
+*{-webkit-text-fill-color:inherit;}
+.wrap{max-width:600px;margin:0 auto;}
+h1{font-size:20px;font-weight:700;margin-bottom:2px;}
+.sub{font-size:13px;color:var(--muted);margin-bottom:14px;}
+.tabs{display:flex;gap:4px;margin-bottom:13px;border-bottom:1px solid var(--border);padding-bottom:9px;flex-wrap:wrap;}
+.tab{flex:1;min-width:50px;padding:7px 3px;border:1px solid var(--border-strong);background:var(--card);border-radius:8px;font-size:11px;cursor:pointer;color:var(--text);text-align:center;}
+.tab.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700;}
+.tab:disabled{opacity:.38;cursor:not-allowed;}
+.panel{display:none;}.panel.on{display:block;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 13px;margin-bottom:9px;}
+.lbl{font-size:12px;color:var(--muted);display:block;margin-bottom:3px;}
+.muted{font-size:13px;color:var(--muted);margin-bottom:7px;}
+input[type=text],input[type=number],select{width:100%;padding:8px 9px;border:1px solid var(--border-strong);border-radius:8px;font-size:14px;background:#fff;color:var(--text);}
+.row{display:flex;gap:7px;align-items:flex-end;margin-bottom:7px;flex-wrap:wrap;}
+.row>div{flex:1;min-width:65px;}
+button{padding:7px 11px;border:1px solid var(--border-strong);border-radius:8px;background:#fff;font-size:13px;cursor:pointer;color:var(--text);}
+button:active{transform:scale(.97);}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent);width:100%;padding:10px;font-weight:600;font-size:14px;}
+.btn-sm{font-size:12px;padding:4px 9px;}
+.p-row{display:flex;gap:6px;margin-bottom:7px;align-items:flex-end;}
+.p-row .hw{flex:1;}
+.si-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:4px;margin-bottom:4px;}
+.si-cell label{font-size:9px;color:var(--muted);display:block;text-align:center;}
+.si-cell input{padding:5px 2px;text-align:center;font-size:12px;}
+.nav-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+.h-label{font-size:15px;font-weight:700;text-align:center;min-width:80px;}
+.h-sub{font-size:11px;color:var(--muted);text-align:center;margin-top:1px;}
+.sc-tbl{width:100%;border-collapse:collapse;font-size:13px;}
+.sc-tbl th{font-size:11px;color:var(--muted);font-weight:600;padding:3px;border-bottom:1px solid var(--border);text-align:left;}
+.sc-tbl td{padding:5px 3px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.sc-tbl input{text-align:center;font-size:14px;width:100%;padding:5px 2px;border:1px solid var(--border-strong);border-radius:6px;}
+.pts-badge{display:inline-block;min-width:24px;text-align:center;font-weight:700;font-size:15px;}
+.b-up{background:var(--green-bg);color:var(--green);padding:2px 6px;border-radius:5px;font-size:12px;font-weight:600;}
+.b-dn{background:var(--red-bg);color:var(--red);padding:2px 6px;border-radius:5px;font-size:12px;font-weight:600;}
+.b-ev{background:#eee;color:var(--muted);padding:2px 6px;border-radius:5px;font-size:12px;font-weight:600;}
+.sum-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.sum-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:11px;text-align:center;}
+.sum-name{font-size:12px;color:var(--muted);margin-bottom:3px;}
+.sum-pts{font-size:22px;font-weight:700;}
+.sum-money{font-size:15px;font-weight:600;margin-top:2px;}
+.pos{color:var(--green);}.neg{color:var(--red);}
+table.det{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:11px;}
+table.det td,table.det th{padding:5px 4px;border-bottom:1px solid var(--border);}
+table.det td:last-child{text-align:right;}
+.sec{font-size:13px;color:var(--muted);font-weight:600;margin:11px 0 5px;}
+.skin-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.skin-tbl th,.skin-tbl td{padding:5px 3px;border-bottom:1px solid var(--border);}
+.skin-tbl th{font-size:11px;color:var(--muted);font-weight:600;}
+.skin-win td{background:var(--green-bg);}
+.skin-tie td{background:#f5f3ec;}
+.circled{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:13px;}
+.err{font-size:12px;color:var(--red);display:none;margin-bottom:6px;}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#f5f3ee;--card:#fff;--border:#ddd8cc;--border-strong:#c7c1b0;
+    --text:#1f2420;--muted:#6b6b63;
+    --green:#2f6e4d;--green-bg:#e6f0e9;
+    --red:#a23b2f;--red-bg:#f5e8e5;
+    --accent:#1f5c4a;--accent-bg:#e3efe9;
+    --gold:#8a6a1f;--gold-bg:#f3ecdb;
+  }
+  html,body{background:#f5f3ee !important;color:#1f2420 !important;}
+  .card,.sum-card,.seg-card{background:#fff !important;color:#1f2420 !important;}
+  input,select{background:#fff !important;color:#1f2420 !important;}
+  button{background:#fff !important;color:#1f2420 !important;}
+  table,td,th{color:#1f2420 !important;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>9-Point Game</h1>
+<p class="sub">Whidbey Golf Club</p>
+
+<div class="tabs">
+  <button class="tab on" data-tab="setup">Setup</button>
+  <button class="tab" data-tab="entry" disabled>Score Entry</button>
+  <button class="tab" data-tab="scorecard" disabled>Scorecard</button>
+  <button class="tab" data-tab="skins" disabled>Skins</button>
+  <button class="tab" data-tab="group" disabled>Group</button>
+  <button class="tab" data-tab="summary" disabled>Summary</button>
+</div>
+
+<!-- SETUP -->
+<div class="panel on" id="panel-setup">
+  <div class="card">
+    <p class="muted">3 Players — name & course handicap</p>
+    <div id="p-inputs"></div>
+    <p style="font-size:11px;color:var(--muted);margin-top:4px;" id="daily-note"></p>
+  </div>
+  <div class="card">
+    <p class="muted" style="margin-bottom:4px;">Stroke index & par — <strong>Whidbey Golf Club</strong></p>
+    <div class="si-grid" id="si-front"></div>
+    <div class="si-grid" id="si-back"></div>
+  </div>
+  <div class="card">
+    <div class="row">
+      <div><label class="lbl">Total holes</label>
+        <select id="hole-count"><option value="9">9</option><option value="18" selected>18</option></select>
+      </div>
+      <div><label class="lbl">$ per point</label>
+        <input type="number" id="pt-val" value="0.50" min="0" step="0.25" inputmode="decimal">
+      </div>
+    </div>
+    <div class="row">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="use-900" style="width:auto;">
+        <label class="lbl" style="margin:0;">Use 9-0-0 rule (one player wins by 2+ shots over both others)</label>
+      </div>
+    </div>
+    <div class="row">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="use-pos" style="width:auto;">
+        <label class="lbl" style="margin:0;">Track positives</label>
+      </div>
+    </div>
+    <button class="btn-primary" id="start-btn" style="margin-top:6px;">Start round</button>
+  </div>
+</div>
+
+<!-- SCORE ENTRY -->
+<div class="panel" id="panel-entry">
+  <div style="text-align:center;margin-bottom:8px;">
+    <div class="h-label" id="sc-hole-lbl"></div>
+    <div class="h-sub" id="sc-hole-sub"></div>
+  </div>
+  <div class="card"><table class="sc-tbl" id="sc-tbl"></table></div>
+  <div class="nav-row" style="margin-bottom:10px;">
+    <button class="btn-sm" id="sc-prev">← prev</button>
+    <button class="btn-sm" id="sc-next">next →</button>
+  </div>
+  <div id="sc-results"></div>
+</div>
+
+<!-- SCORECARD -->
+<div class="panel" id="panel-scorecard">
+  <p class="muted">Hole-by-hole — tap a player to expand</p>
+  <div id="card-wrap"></div>
+</div>
+
+<!-- SKINS -->
+<div class="panel" id="panel-skins">
+  <p class="muted">Net skins — full course handicap</p>
+  <div id="skins-wrap"></div>
+</div>
+
+<!-- GROUP SCORE -->
+<div class="panel" id="panel-group">
+  <p class="muted">Group score — low gross & low net each hole</p>
+  <div id="group-wrap"></div>
+</div>
+
+<!-- SUMMARY -->
+<div class="panel" id="panel-summary">
+  <div class="sum-grid" id="sum-cards"></div>
+  <div id="sum-detail"></div>
+</div>
+</div>
+
+<script>
+(function(){
+const SI  = [5,15,7,13,3,1,17,9,11, 2,14,6,18,4,12,10,16,8];
+const PAR = [5,3,4,4,4,5,3,4,4,    4,4,5,3,4,4,4,3,5];
+const SN  = ['Dave Phay','Dave Smith','Denny','Germ','Gordon','Jeff','Matzen','Mike','Pat','Roger','Steve','Stone','TJ','Tom','Tracy'];
+const SK  = 'nine_point_state_v1';
+
+let S = {
+  players:[{name:'',hcp:0},{name:'',hcp:0},{name:'',hcp:0}],
+  si:SI.slice(), par:PAR.slice(),
+  holes:18, ptVal:0.25, use900:false, usePos:false,
+  started:false, scores:{}, curHole:1,
+};
+
+const ns = ()=>S.players.map((p,i)=>(p.name||'').trim()||'Player '+(i+1));
+
+function dailyHcps(){
+  const h=S.players.map(p=>+(p.hcp)||0), low=Math.min(...h);
+  return h.map(v=>Math.max(0,Math.round((v-low)*10)/10));
+}
+function dailyStrokes(pi,hole){
+  const dh=dailyHcps()[pi], si=S.si[hole-1];
+  const f=Math.floor(dh/18); return f+(si<=(dh-f*18)?1:0);
+}
+function courseStrokes(pi,hole){
+  const hcp=Math.round(+(S.players[pi].hcp)||0), si=S.si[hole-1];
+  const f=Math.floor(hcp/18); return f+(si<=(hcp-f*18)?1:0);
+}
+function ensureScore(hole){
+  if(!S.scores[hole]) S.scores[hole]={gross:Array(3).fill(''),pos:Array(3).fill(''),x:Array(3).fill(false)};
+}
+function isX(hole,pi){ return !!(S.scores[hole]&&S.scores[hole].x&&S.scores[hole].x[pi]); }
+function getGross(hole,pi){
+  if(isX(hole,pi)) return 'X';
+  const g=S.scores[hole]&&S.scores[hole].gross[pi];
+  return(g===''||g===null||g===undefined)?null:+g;
+}
+function dailyNet(pi,hole){
+  const g=getGross(hole,pi); if(g===null) return null;
+  return{val:(g==='X')?S.par[hole-1]+2:g-dailyStrokes(pi,hole), x:g==='X'};
+}
+function skinNet(pi,hole){
+  const g=getGross(hole,pi); if(g===null) return null;
+  return(g==='X')?S.par[hole-1]+2:g-courseStrokes(pi,hole);
+}
+
+// ── 9-POINT DISTRIBUTION ─────────────────────────────────────────────────────
+function distribute9(nets){
+  // nets = [{val, x, idx}, ...] for 3 players, some may be null
+  // Returns [pts0, pts1, pts2]
+  const pts=[0,0,0];
+  const valid=nets.filter(n=>n!==null);
+  if(valid.length<3) return pts; // need all 3 scores
+
+  // X players automatically get 1 point — handle them first
+  const xPlayers=nets.filter(n=>n.x);
+  const numPlayers=nets.filter(n=>!n.x);
+
+  if(xPlayers.length===3){
+    // All X — 3/3/3
+    nets.forEach(n=>pts[n.idx]=3); return pts;
+  }
+
+  if(xPlayers.length===2){
+    // One numeric, two X — numeric gets 5, each X gets 2
+    numPlayers[0] && (pts[numPlayers[0].idx]=5);
+    xPlayers.forEach(n=>pts[n.idx]=2); return pts;
+  }
+
+  if(xPlayers.length===1){
+    // One X always gets 1 point, never ties with numerics
+    xPlayers.forEach(n=>pts[n.idx]=1);
+    // Remaining two numeric players share 8 points
+    const [a,b]=numPlayers.sort((x,y)=>x.val-y.val);
+    if(a.val===b.val){
+      // Tie for the two numerics — split remaining 8 as 4/4
+      pts[a.idx]=4; pts[b.idx]=4;
+    } else {
+      // Winner gets 5, other gets 3
+      pts[a.idx]=5; pts[b.idx]=3;
+    }
+    return pts;
+  }
+
+  // No X players — standard distribution
+  // Sort ascending by val
+  const sorted=[...nets].sort((a,b)=>a.val-b.val);
+  const [lo,mid,hi]=sorted;
+  const loV=lo.val, midV=mid.val, hiV=hi.val;
+
+  // Check 9-0-0: one numeric player beats BOTH others by 2+ shots
+  if(S.use900){
+    if(loV+2<=midV && loV+2<=hiV){ pts[lo.idx]=9; return pts; }
+  }
+
+  const allTie = loV===midV && midV===hiV;
+  const loTieMid = loV===midV && midV!==hiV;
+  const midTieHi = loV!==midV && midV===hiV;
+
+  if(allTie){
+    pts[lo.idx]=3; pts[mid.idx]=3; pts[hi.idx]=3;
+  } else if(loTieMid){
+    pts[lo.idx]=4; pts[mid.idx]=4; pts[hi.idx]=1;
+  } else if(midTieHi){
+    pts[lo.idx]=5; pts[mid.idx]=2; pts[hi.idx]=2;
+  } else {
+    pts[lo.idx]=5; pts[mid.idx]=3; pts[hi.idx]=1;
+  }
+  return pts;
+}
+
+function holePoints(hole){
+  const nets=ns().map((_,i)=>{
+    const n=dailyNet(i,hole);
+    return n?{...n,idx:i}:null;
+  });
+  if(nets.some(n=>n===null)) return null;
+  const pts=distribute9(nets);
+  // Add positives directly to point totals (same value per point as the game)
+  if(S.usePos&&S.scores[hole]){
+    [0,1,2].forEach(i=>{ pts[i]+=(+(S.scores[hole].pos[i])||0); });
+  }
+  return pts;
+}
+
+function runningPoints(){
+  const totals=[0,0,0];
+  for(let h=1;h<=S.holes;h++){
+    const pts=holePoints(h); if(!pts) break;
+    totals[0]+=pts[0]; totals[1]+=pts[1]; totals[2]+=pts[2];
+  }
+  return totals;
+}
+
+// ── MONEY SETTLEMENT ─────────────────────────────────────────────────────────
+function settleMoney(){
+  const pts=runningPoints(), pv=S.ptVal;
+  // Net transfer: each player vs each other
+  // Only lowest pays both; mid only pays top
+  const money=[0,0,0];
+  // Compare all pairs
+  for(let a=0;a<3;a++){
+    for(let b=a+1;b<3;b++){
+      const diff=pts[a]-pts[b];
+      const amt=Math.abs(diff)*pv;
+      if(diff>0){ money[a]+=amt; money[b]-=amt; }
+      else if(diff<0){ money[b]+=amt; money[a]-=amt; }
+    }
+  }
+  return money;
+}
+
+// ── SAVE/LOAD ─────────────────────────────────────────────────────────────────
+function autosave(){ try{S._savedAt=Date.now();localStorage.setItem(SK,JSON.stringify(S));}catch(e){} }
+function loadState(){
+  try{
+    const raw=localStorage.getItem(SK); if(!raw) return false;
+    const saved=JSON.parse(raw); if(!saved||!saved.started) return false;
+    Object.assign(S,saved); return true;
+  }catch(e){return false;}
+}
+function clearSave(){ try{localStorage.removeItem(SK);}catch(e){} }
+
+// ── TAB ───────────────────────────────────────────────────────────────────────
+function go(tab){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.getElementById('panel-'+tab).classList.add('on');
+  document.querySelector('[data-tab="'+tab+'"]').classList.add('on');
+  if(tab==='entry')     renderEntry();
+  if(tab==='scorecard') renderCard();
+  if(tab==='skins')     renderSkins();
+  if(tab==='group')     renderGroup();
+  if(tab==='summary')   renderSummary();
+}
+document.querySelectorAll('.tab').forEach(t=>{ t.onclick=()=>{ if(!t.disabled) go(t.dataset.tab); }; });
+
+function unlockTabs(){
+  ['entry','scorecard','skins','group','summary'].forEach(t=>document.querySelector('[data-tab="'+t+'"]').disabled=false);
+}
+
+// ── SETUP ─────────────────────────────────────────────────────────────────────
+function renderPInputs(){
+  const c=document.getElementById('p-inputs'); c.innerHTML='';
+  S.players.forEach((p,i)=>{
+    const row=document.createElement('div'); row.className='p-row';
+    const nw=document.createElement('div'); nw.style='flex:2;display:flex;gap:5px;';
+    const sel=document.createElement('select'); sel.style='flex:1;';
+    const isSt=SN.includes(p.name);
+    sel.innerHTML='<option value="">— pick —</option>'
+      +SN.map(n=>'<option value="'+n+'"'+(p.name===n?' selected':'')+'>'+n+'</option>').join('')
+      +'<option value="__other__"'+(!isSt&&p.name?' selected':'')+'>Other…</option>';
+    const ni=document.createElement('input'); ni.type='text'; ni.placeholder='Type name';
+    ni.style='flex:1;display:'+(!isSt&&p.name?'block':'none');
+    ni.value=!isSt?p.name:'';
+    sel.onchange=e=>{ const v=e.target.value; if(v==='__other__'){ni.style.display='block';ni.focus();S.players[i].name=ni.value;}else{ni.style.display='none';S.players[i].name=v;} renderDN(); };
+    ni.oninput=e=>{ S.players[i].name=e.target.value; renderDN(); };
+    nw.appendChild(sel); nw.appendChild(ni);
+    const hw=document.createElement('div'); hw.className='hw';
+    const hl=document.createElement('label'); hl.className='lbl'; hl.textContent='HCP';
+    const hi=document.createElement('input'); hi.type='number'; hi.step='0.1'; hi.value=p.hcp;
+    hi.oninput=e=>{ S.players[i].hcp=+e.target.value||0; renderDN(); };
+    hw.appendChild(hl); hw.appendChild(hi);
+    row.appendChild(nw); row.appendChild(hw); c.appendChild(row);
+  });
+  renderDN();
+}
+function renderDN(){
+  const dh=dailyHcps();
+  document.getElementById('daily-note').textContent='Daily strokes: '+ns().map((n,i)=>n+' '+Math.round(dh[i])).join(' · ');
+}
+renderPInputs();
+
+function renderSiGrid(){
+  ['front','back'].forEach(side=>{
+    const el=document.getElementById('si-'+side); el.innerHTML='';
+    const[a,b]=side==='front'?[1,9]:[10,18];
+    for(let h=a;h<=b;h++){
+      const cell=document.createElement('div'); cell.className='si-cell';
+      const lab=document.createElement('label'); lab.textContent='H'+h+' p'+S.par[h-1];
+      const inp=document.createElement('input'); inp.type='number'; inp.min='1'; inp.max='18'; inp.value=S.si[h-1];
+      inp.oninput=e=>{S.si[h-1]=+e.target.value||h;};
+      cell.appendChild(lab); cell.appendChild(inp); el.appendChild(cell);
+    }
+  });
+}
+renderSiGrid();
+
+document.getElementById('start-btn').onclick=()=>{
+  S.holes=+document.getElementById('hole-count').value;
+  S.ptVal=+document.getElementById('pt-val').value;
+  S.use900=document.getElementById('use-900').checked;
+  S.usePos=document.getElementById('use-pos').checked;
+  S.started=true; S.scores={}; S.curHole=1;
+  autosave(); unlockTabs(); go('entry'); renderEntry();
+};
+
+// ── SCORE ENTRY ───────────────────────────────────────────────────────────────
+document.getElementById('sc-prev').onclick=()=>{ if(S.curHole>1){S.curHole--;renderEntry();} };
+document.getElementById('sc-next').onclick=()=>{
+  if(S.curHole<S.holes){S.curHole++;renderEntry();}
+  else go('skins');
+};
+
+function renderEntry(){
+  const hole=S.curHole; ensureScore(hole);
+  const par=S.par[hole-1], si=S.si[hole-1];
+  document.getElementById('sc-hole-lbl').textContent='Hole '+hole+' — Par '+par;
+  document.getElementById('sc-hole-sub').textContent='SI '+si;
+  renderEntryTable(); renderHoleResult();
+}
+
+function renderEntryTable(focusTarget){
+  const hole=S.curHole, nms=ns(), tbl=document.getElementById('sc-tbl');
+  const hdr=S.usePos
+    ?'<tr><th>Player</th><th>Stk</th><th>Gross</th><th>Net</th><th style="width:100px">Pos</th></tr>'
+    :'<tr><th>Player</th><th>Stk</th><th>Gross</th><th>Net</th></tr>';
+  let html=hdr;
+  nms.forEach((nm,i)=>{
+    const strk=dailyStrokes(i,hole);
+    const xFlag=isX(hole,i);
+    const gv=xFlag?'X':(S.scores[hole].gross[i]===''?'':S.scores[hole].gross[i]);
+    const net=dailyNet(i,hole);
+    const nd=net===null?'—':net.val+(net.x?' <span style="font-size:10px;color:var(--red)">(X)</span>':'');
+    const posv=S.scores[hole].pos[i];
+    const posCell=S.usePos
+      ?'<td><div style="display:flex;align-items:center;gap:2px;justify-content:center;">'
+        +'<button class="pos-minus" data-i="'+i+'" style="width:26px;height:28px;padding:0;font-size:16px;font-weight:700;line-height:1;flex-shrink:0;">−</button>'
+        +'<input class="pos-inp" data-i="'+i+'" inputmode="numeric" value="'+(posv===''?'0':posv)+'" style="width:32px;text-align:center;font-size:14px;font-weight:600;padding:4px 2px;border:1px solid var(--border-strong);border-radius:6px;">'
+        +'<button class="pos-plus" data-i="'+i+'" style="width:26px;height:28px;padding:0;font-size:16px;font-weight:700;line-height:1;flex-shrink:0;">+</button>'
+        +'</div></td>'
+      :'';
+    html+='<tr>'
+      +'<td style="font-size:12.5px">'+nm+'</td>'
+      +'<td style="text-align:center;color:var(--muted)">'+(strk>0?'+'+strk:'—')+'</td>'
+      +'<td><input class="g-inp" data-i="'+i+'" inputmode="numeric" value="'+(xFlag?'X':gv)+'" style="background:'+(xFlag?'#fee':'')+'"></td>'
+      +'<td style="text-align:center;font-size:12px;color:var(--muted)">'+nd+'</td>'
+      +posCell
+      +'</tr>';
+  });
+  tbl.innerHTML=html;
+
+  tbl.querySelectorAll('.g-inp').forEach(inp=>{
+    inp.oninput=e=>{
+      const i=+e.target.dataset.i, v=e.target.value.trim().toUpperCase();
+      if(v==='X'||v==='99'){
+        S.scores[hole].x[i]=true; S.scores[hole].gross[i]=''; e.target.value='X'; e.target.style.background='#fee';
+      } else {
+        S.scores[hole].x[i]=false; S.scores[hole].gross[i]=v===''?'':+v||''; e.target.style.background='';
+      }
+      autosave(); renderEntryTable('g-'+i); renderHoleResult();
+    };
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        const i=+inp.dataset.i;
+        const next=S.usePos
+          ?tbl.querySelector('.pos-inp[data-i="'+i+'"]')
+          :tbl.querySelector('.g-inp[data-i="'+((i+1)%3)+'"]');
+        if(next) next.focus();
+      }
+    });
+  });
+
+  if(S.usePos){
+    tbl.querySelectorAll('.pos-minus,.pos-plus').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const i=+btn.dataset.i, cur=+(S.scores[hole].pos[i])||0;
+        S.scores[hole].pos[i]=cur+(btn.classList.contains('pos-plus')?1:-1);
+        const inp=tbl.querySelector('.pos-inp[data-i="'+i+'"]');
+        if(inp) inp.value=S.scores[hole].pos[i];
+        autosave(); renderHoleResult();
+      });
+    });
+    tbl.querySelectorAll('.pos-inp').forEach(inp=>{
+      inp.oninput=e=>{
+        S.scores[hole].pos[+e.target.dataset.i]=+e.target.value||0;
+        autosave(); renderHoleResult();
+      };
+      inp.addEventListener('keydown',e=>{
+        if(e.key==='Enter'){
+          e.preventDefault();
+          const i=+inp.dataset.i;
+          const next=tbl.querySelector('.g-inp[data-i="'+((i+1)%3)+'"]');
+          if(next) next.focus();
+        }
+      });
+    });
+  }
+
+  if(focusTarget){
+    const[type,idx]=focusTarget.split('-');
+    const el=tbl.querySelector('.'+(type==='g'?'g-inp':'pos-inp')+'[data-i="'+idx+'"]');
+    if(el) el.focus();
+  }
+}
+
+function renderHoleResult(){
+  const hole=S.curHole, nms=ns(), c=document.getElementById('sc-results');
+  const pts=holePoints(hole);
+  if(!pts){ c.innerHTML='<p style="font-size:13px;color:var(--muted);margin-top:4px;">Enter all 3 scores to see points.</p>'; return; }
+
+  const runPts=runningPoints();
+  const money=settleMoney();
+
+  let html='<div class="card">';
+  // This hole
+  html+='<p style="font-size:12px;color:var(--muted);margin-bottom:6px;">This hole</p>';
+  html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">';
+  nms.forEach((nm,i)=>{
+    const netV=dailyNet(i,hole);
+    html+='<div style="text-align:center;">'
+      +'<p style="font-size:11px;color:var(--muted)">'+nm+'</p>'
+      +'<p style="font-size:20px;font-weight:700;color:'+(pts[i]>=5?'var(--green)':pts[i]<=1?'var(--red)':'var(--text)')+'">'+pts[i]+'</p>'
+      +'<p style="font-size:11px;color:var(--muted)">net '+(netV?netV.val:'—')+'</p>'
+      +'</div>';
+  });
+  html+='</div>';
+
+  // Running totals
+  html+='<p style="font-size:12px;color:var(--muted);margin-bottom:6px;border-top:1px solid var(--border);padding-top:8px;">Running total</p>';
+  html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">';
+  nms.forEach((nm,i)=>{
+    const cls=money[i]>0?'pos':money[i]<0?'neg':'';
+    html+='<div style="text-align:center;">'
+      +'<p style="font-size:11px;color:var(--muted)">'+nm+'</p>'
+      +'<p style="font-size:16px;font-weight:700;">'+runPts[i]+' pts</p>'
+      +'<p style="font-size:13px;font-weight:600;" class="'+cls+'">'+(money[i]>=0?'+':'')+money[i].toFixed(2)+'</p>'
+      +'</div>';
+  });
+  html+='</div>';
+
+  html+='</div>';
+  c.innerHTML=html;
+}
+
+// ── SCORECARD ─────────────────────────────────────────────────────────────────
+function renderCard(){
+  const nms=ns(), wrap=document.getElementById('card-wrap'); wrap.innerHTML='';
+  nms.forEach((nm,i)=>{
+    const id='cp-'+i;
+    const div=document.createElement('div'); div.className='card'; div.style.marginBottom='8px';
+    let gSum=0,nSum=0,gFront=0,nFront=0,gBack=0,nBack=0,played=0,fComp=true,bComp=true;
+    for(let h=1;h<=S.holes;h++){
+      const g=getGross(h,i),net=dailyNet(i,h),par=S.par[h-1];
+      if(g!==null){gSum+=(g==='X')?par+2:g;nSum+=net?net.val:0;played++;
+        if(h<=9){gFront+=(g==='X')?par+2:g;nFront+=net?net.val:0;}
+        else{gBack+=(g==='X')?par+2:g;nBack+=net?net.val:0;}}
+      else{if(h<=9)fComp=false;else bComp=false;}
+    }
+    const summary=played>0?'Gross '+gSum+' · Net '+nSum:'No scores yet';
+    const hdr=document.createElement('p');
+    hdr.style.cssText='font-size:14px;font-weight:600;cursor:pointer;margin:0;display:flex;justify-content:space-between;align-items:center;';
+    hdr.innerHTML='<span>'+nm+'</span><span style="font-size:12px;font-weight:400;color:var(--muted)">'+summary+' ▸</span>';
+    hdr.onclick=()=>{ const b=document.getElementById(id); const op=b.style.display!=='none'; b.style.display=op?'none':'block'; hdr.querySelector('span:last-child').textContent=(op?summary+' ▸':summary+' ▴'); };
+    div.appendChild(hdr);
+    const body=document.createElement('div'); body.id=id; body.style.display='none'; body.style.marginTop='10px';
+    let html='<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr style="border-bottom:1px solid var(--border)"><th style="padding:4px;text-align:left;font-size:11px;color:var(--muted)">H</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Par</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Gross</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Net</th><th style="padding:4px;text-align:center;font-size:11px;color:var(--muted)">Pts</th></tr>';
+    for(let h=1;h<=S.holes;h++){
+      const g=getGross(h,i),net=dailyNet(i,h),par=S.par[h-1];
+      const pts=holePoints(h);
+      const gDisp=g===null?'—':(g==='X'?'<span style="color:var(--red)">X</span>':g);
+      const nDisp=net===null?'—':net.val+(net.x?'<sup style="font-size:9px;color:var(--red)">X</sup>':'');
+      const pDisp=pts?pts[i]:'—';
+      let gDisp2=gDisp;
+      if(g!==null&&g!=='X'){
+        const diff=g-par;
+        if(diff<=-2) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;border:2px solid var(--green);"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:12px;">'+g+'</span></span>';
+        else if(diff===-1) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:2px solid var(--green);color:var(--green);font-weight:700;font-size:13px;">'+g+'</span>';
+        else if(diff===1) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:2px solid var(--muted);color:var(--muted);font-size:13px;">'+g+'</span>';
+        else if(diff>=2) gDisp2='<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:2px solid var(--red);"><span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:2px solid var(--red);color:var(--red);font-size:12px;">'+g+'</span></span>';
+      }
+      const ptsColor=pDisp===9||pDisp===5?'var(--green)':pDisp===1||pDisp===0?'var(--red)':'var(--text)';
+      html+='<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px;font-size:12px;color:var(--muted)">'+h+'</td><td style="padding:4px;text-align:center;color:var(--muted)">'+par+'</td><td style="padding:4px;text-align:center;">'+gDisp2+'</td><td style="padding:4px;text-align:center;">'+nDisp+'</td><td style="padding:4px;text-align:center;font-weight:700;color:'+ptsColor+'">'+pDisp+'</td></tr>';
+      if(h===9&&S.holes===18){
+        const fPar=S.par.slice(0,9).reduce((a,b)=>a+b,0);
+        html+='<tr style="border-top:2px solid var(--border-strong);border-bottom:2px solid var(--border-strong);background:#f5f3ee;font-weight:700;"><td style="padding:5px 4px;font-size:12px;">OUT</td><td style="padding:5px 4px;text-align:center;">'+fPar+'</td><td style="padding:5px 4px;text-align:center;">'+(fComp?gFront:'—')+'</td><td style="padding:5px 4px;text-align:center;">'+(fComp?nFront:'—')+'</td><td></td></tr>';
+      }
+    }
+    if(S.holes===18){
+      const bPar=S.par.slice(9,18).reduce((a,b)=>a+b,0);
+      html+='<tr style="border-top:2px solid var(--border-strong);border-bottom:1px solid var(--border);background:#f5f3ee;font-weight:700;"><td style="padding:5px 4px;font-size:12px;">IN</td><td style="padding:5px 4px;text-align:center;">'+bPar+'</td><td style="padding:5px 4px;text-align:center;">'+(bComp?gBack:'—')+'</td><td style="padding:5px 4px;text-align:center;">'+(bComp?nBack:'—')+'</td><td></td></tr>';
+    }
+    const tPar=S.par.slice(0,S.holes).reduce((a,b)=>a+b,0);
+    const tComp=S.holes===9?fComp:(fComp&&bComp);
+    html+='<tr style="border-top:2px solid var(--border-strong);font-weight:700;background:#eae8e2;"><td style="padding:5px 4px;font-size:12px;">TOTAL</td><td style="padding:5px 4px;text-align:center;">'+tPar+'</td><td style="padding:5px 4px;text-align:center;">'+(tComp?gSum:'—')+'</td><td style="padding:5px 4px;text-align:center;">'+(tComp?nSum:'—')+'</td><td></td></tr>';
+    html+='</table>';
+    body.innerHTML=html; div.appendChild(body); wrap.appendChild(div);
+  });
+}
+
+// ── SKINS ─────────────────────────────────────────────────────────────────────
+function renderSkins(){
+  const nms=ns(), wrap=document.getElementById('skins-wrap');
+  let html='<div style="overflow-x:auto"><table class="skin-tbl"><tr><th>H</th><th>Par</th>';
+  nms.forEach(nm=>html+='<th>'+nm+'</th>');
+  html+='<th>Low</th><th>Winner</th></tr>';
+  for(let h=1;h<=S.holes;h++){
+    const nets=nms.map((_,i)=>skinNet(i,h));
+    const xFlags=nms.map((_,i)=>isX(h,i));
+    const allIn=nets.every(v=>v!==null);
+    const par=S.par[h-1];
+    const toPar=v=>v-par===0?'E':(v-par>0?'+'+(v-par):(v-par));
+    if(!allIn){
+      html+='<tr><td>'+h+'</td><td>'+par+'</td>';
+      nms.forEach((_,i)=>html+='<td style="text-align:center">'+(nets[i]===null?'—':nets[i]+(xFlags[i]?'<sup style="color:var(--red)">X</sup>':''))+'</td>');
+      html+='<td colspan="2" style="color:var(--muted);font-size:11px;">Incomplete</td></tr>';
+      continue;
+    }
+    const elig=nets.map((v,i)=>xFlags[i]?null:v);
+    const eV=elig.filter(v=>v!==null);
+    const low=eV.length?Math.min(...eV):null;
+    const winners=low!==null?nms.filter((_,i)=>!xFlags[i]&&nets[i]===low):[];
+    const isW=winners.length===1, isTie=winners.length>1;
+    html+='<tr class="'+(isW?'skin-win':isTie?'skin-tie':'')+'"><td>'+h+'</td><td>'+par+'</td>';
+    nms.forEach((nm,i)=>{
+      const v=nets[i],x=xFlags[i],iWin=isW&&winners[0]===nm;
+      html+='<td style="text-align:center">'+(iWin?'<span class="circled">'+v+'</span>':'<span style="'+(x?'color:var(--muted)':'')+'">'+v+(x?'<sup style="color:var(--red)">X</sup>':'')+'</span>')+'</td>';
+    });
+    const dL=low!==null?low+'('+toPar(low)+')':'—';
+    html+='<td style="text-align:center;font-weight:'+(isW?700:400)+'">'+dL+'</td><td>'+(isW?'<strong>'+winners[0]+'</strong>':isTie?'TIED':'—')+'</td></tr>';
+  }
+  html+='</table></div>';
+  wrap.innerHTML=html;
+}
+
+// ── GROUP SCORE ───────────────────────────────────────────────────────────────
+function renderGroup(){
+  const nms=ns(), wrap=document.getElementById('group-wrap');
+  let gTotal=0,nTotal=0,gComp=true,nComp=true;
+  let gFront=0,nFront=0,gBack=0,nBack=0,fComp=true,bComp=true;
+  let gRunning=0, nRunning=0, parRunning=0; // resets each nine
+  let gOverall=0, parOverall=0; // never resets — for total badge
+  let frontScore=0, frontPar=0, backScore=0, backPar=0; // for front/back badge
+  let tableHtml='<tr><th>H</th><th>Par</th><th>Low Gross</th><th>Low Net</th><th>vs Par</th></tr>';
+
+  for(let h=1;h<=S.holes;h++){
+    // Reset running tally at start of back nine
+    if(h===10){ gRunning=0; nRunning=0; parRunning=0; }
+    const par=S.par[h-1];
+    const grosses=nms.map((_,i)=>{const g=getGross(h,i);return g===null?null:(g==='X'?par+2:g);});
+    const nets=nms.map((_,i)=>skinNet(i,h));
+    const allG=grosses.every(v=>v!==null), allN=nets.every(v=>v!==null);
+
+    // Low gross — straightforward lowest
+    const lowG=allG?Math.min(...grosses):null;
+    const lowGIdx=allG?grosses.indexOf(lowG):null;
+
+    // Low net must come from a DIFFERENT player than low gross
+    // Find the lowest net among players who are NOT the low gross player
+    let lowN=null;
+    if(allN){
+      const netsSorted=[...nets.map((v,i)=>({v,i}))].sort((a,b)=>a.v-b.v);
+      // If low gross player also has low net, use next best from someone else
+      const lowNEntry=netsSorted.find(e=>e.i!==lowGIdx);
+      // But if low gross player's net is lower, still check if it's truly best
+      // Rule: low gross and low net must be different players
+      // So: pick the best net overall; if same player as low gross, skip to next
+      const bestNet=netsSorted[0];
+      if(bestNet.i!==lowGIdx){
+        lowN=bestNet.v; // different player, use their net
+      } else {
+        // Same player has both — give low net to next best from someone else
+        lowN=lowNEntry?lowNEntry.v:bestNet.v;
+      }
+    }
+
+    // Running to-par: group score = lowG + lowN vs par*2 (resets each nine)
+    let runDisp='—';
+    if(lowG!==null&&lowN!==null){
+      const groupScore=lowG+lowN;
+      const groupPar=par*2;
+      nRunning+=groupScore; parRunning+=groupPar;
+      gOverall+=groupScore; parOverall+=groupPar;
+      if(h<=9){ frontScore+=groupScore; frontPar+=groupPar; }
+      else { backScore+=groupScore; backPar+=groupPar; }
+      const diff=nRunning-parRunning;
+      const color=diff<0?'var(--green)':diff>0?'var(--red)':'var(--muted)';
+      runDisp='<span style="color:'+color+';font-weight:700;">'+(diff>0?'+':'')+diff+'</span>';
+    }
+
+    tableHtml+='<tr style="border-bottom:1px solid var(--border)">'
+      +'<td style="padding:5px 4px;font-size:12px;color:var(--muted)">'+h+'</td>'
+      +'<td style="padding:5px 4px;text-align:center;color:var(--muted)">'+par+'</td>'
+      +'<td style="padding:5px 4px;text-align:center;font-weight:600;">'+(lowG===null?'—':lowG)+'</td>'
+      +'<td style="padding:5px 4px;text-align:center;font-weight:600;">'+(lowN===null?'—':lowN)+'</td>'
+      +'<td style="padding:5px 4px;text-align:center;">'+runDisp+'</td>'
+      +'</tr>';
+
+    if(lowG!==null){gTotal+=lowG;if(h<=9)gFront+=lowG;else gBack+=lowG;}else{gComp=false;if(h<=9)fComp=false;else bComp=false;}
+    if(lowN!==null){nTotal+=lowN;if(h<=9)nFront+=lowN;else nBack+=lowN;}else{nComp=false;}
+
+    if(h===9&&S.holes===18){
+      const fPar=S.par.slice(0,9).reduce((a,b)=>a+b,0);
+      const fGroupPar=fPar*2;
+      const fDiff=fComp?(gFront+nFront)-fGroupPar:null;
+      const fCls=fDiff===null?'':fDiff<0?'color:var(--green)':fDiff>0?'color:var(--red)':'color:var(--muted)';
+      tableHtml+='<tr style="border-top:2px solid var(--border-strong);border-bottom:2px solid var(--border-strong);background:#f5f3ee;font-weight:700;">'
+        +'<td style="padding:5px 4px;font-size:12px;">OUT</td>'
+        +'<td style="padding:5px 4px;text-align:center;">'+fGroupPar+'</td>'
+        +'<td style="padding:5px 4px;text-align:center;">'+(fComp?gFront:'—')+'</td>'
+        +'<td style="padding:5px 4px;text-align:center;">'+(fComp?nFront:'—')+'</td>'
+        +'<td style="padding:5px 4px;text-align:center;'+(fCls)+'">'+(fDiff===null?'—':(fDiff>0?'+':'')+fDiff)+'</td>'
+        +'</tr>';
+    }
+  }
+
+  if(S.holes===18){
+    const bPar=S.par.slice(9,18).reduce((a,b)=>a+b,0);
+    const bGroupPar=bPar*2;
+    const bDiff=bComp?(gBack+nBack)-bGroupPar:null;
+    const bCls=bDiff===null?'':bDiff<0?'color:var(--green)':bDiff>0?'color:var(--red)':'color:var(--muted)';
+    tableHtml+='<tr style="border-top:2px solid var(--border-strong);border-bottom:1px solid var(--border);background:#f5f3ee;font-weight:700;">'
+      +'<td style="padding:5px 4px;font-size:12px;">IN</td>'
+      +'<td style="padding:5px 4px;text-align:center;">'+bGroupPar+'</td>'
+      +'<td style="padding:5px 4px;text-align:center;">'+(bComp?gBack:'—')+'</td>'
+      +'<td style="padding:5px 4px;text-align:center;">'+(bComp?nBack:'—')+'</td>'
+      +'<td style="padding:5px 4px;text-align:center;'+(bCls)+'">'+(bDiff===null?'—':(bDiff>0?'+':'')+bDiff)+'</td>'
+      +'</tr>';
+  }
+
+  const tPar=S.par.slice(0,S.holes).reduce((a,b)=>a+b,0);
+  const tGroupPar=tPar*2;
+  const tDiff=(gComp&&nComp)?(gTotal+nTotal)-tGroupPar:null;
+  const tCls=tDiff===null?'':tDiff<0?'color:var(--green)':tDiff>0?'color:var(--red)':'color:var(--muted)';
+  tableHtml+='<tr style="border-top:2px solid var(--border-strong);font-weight:700;background:#eae8e2;">'
+    +'<td style="padding:5px 4px;font-size:12px;">TOTAL</td>'
+    +'<td style="padding:5px 4px;text-align:center;">'+tGroupPar+'</td>'
+    +'<td style="padding:5px 4px;text-align:center;">'+(gComp?gTotal:'—')+'</td>'
+    +'<td style="padding:5px 4px;text-align:center;">'+(nComp?nTotal:'—')+'</td>'
+    +'<td style="padding:5px 4px;text-align:center;'+(tCls)+'">'+(tDiff===null?'—':(tDiff>0?'+':'')+tDiff)+'</td>'
+    +'</tr>';
+
+  // Banner with front nine, back nine, and total
+  function diffStr(score, par){
+    if(par===0) return '<span style="font-size:20px;font-weight:700;color:var(--muted);">—</span>';
+    const d=score-par;
+    const color=d<0?'var(--green)':d>0?'var(--red)':'var(--muted)';
+    return '<span style="font-size:20px;font-weight:700;color:'+color+';">'+(d===0?'E':(d>0?'+':'')+d)+'</span>';
+  }
+  let html='<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;margin-bottom:9px;">'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);text-align:center;gap:4px;">'
+    +'<div><p style="font-size:11px;color:var(--muted);margin-bottom:3px;">Front</p>'+diffStr(frontScore,frontPar)+'</div>'
+    +'<div><p style="font-size:11px;color:var(--muted);margin-bottom:3px;">Back</p>'+diffStr(backScore,backPar)+'</div>'
+    +'<div><p style="font-size:11px;color:var(--muted);margin-bottom:3px;">Total</p>'+diffStr(gOverall,parOverall)+'</div>'
+    +'</div>'
+    +'</div>';
+  html+='<div style="overflow-x:auto"><table class="skin-tbl">'+tableHtml+'</table></div>';
+  wrap.innerHTML=html;
+}
+
+// ── SUMMARY ───────────────────────────────────────────────────────────────────
+function renderSummary(){
+  const nms=ns(), pts=runningPoints(), money=settleMoney();
+  const cards=document.getElementById('sum-cards'); cards.innerHTML='';
+  nms.forEach((nm,i)=>{
+    const card=document.createElement('div'); card.className='sum-card';
+    const mCls=money[i]>0?'pos':money[i]<0?'neg':'';
+    card.innerHTML='<p class="sum-name">'+nm+'</p>'
+      +'<p class="sum-pts">'+pts[i]+'</p>'
+      +'<p class="sum-money '+mCls+'">'+(money[i]>=0?'+':'')+money[i].toFixed(2)+'</p>';
+    cards.appendChild(card);
+  });
+
+  const det=document.getElementById('sum-detail'); let html='';
+
+  // Zero sum check
+  const mSum=money.reduce((a,b)=>a+b,0);
+  if(Math.abs(mSum)>0.01) html+='<p style="color:var(--red);font-size:12px;margin-bottom:7px;">⚠ Zero-sum off by $'+mSum.toFixed(2)+'</p>';
+
+  // Points breakdown per hole
+  html+='<p class="sec">Points by hole</p><table class="det"><tr><th>H</th>';
+  nms.forEach(nm=>html+='<th>'+nm+'</th>');
+  html+='</tr>';
+  for(let h=1;h<=S.holes;h++){
+    const pts2=holePoints(h);
+    html+='<tr><td>'+h+'</td>';
+    if(pts2) nms.forEach((_,i)=>html+='<td style="font-weight:'+(pts2[i]>=5?700:400)+';color:'+(pts2[i]>=5?'var(--green)':pts2[i]<=1?'var(--red)':'var(--text)')+'">'+pts2[i]+'</td>');
+    else nms.forEach(()=>html+='<td style="color:var(--muted)">—</td>');
+    html+='</tr>';
+  }
+  html+='<tr style="font-weight:700;border-top:2px solid var(--border-strong)"><td>Total</td>';
+  pts.forEach(p=>html+='<td>'+p+'</td>');
+  html+='</tr></table>';
+
+  // Money settlement
+  html+='<p class="sec">Settlement</p><table class="det">';
+  nms.forEach((nm,i)=>{
+    const cls=money[i]>0?'color:var(--green)':money[i]<0?'color:var(--red)':'';
+    html+='<tr><td>'+nm+'</td><td style="font-weight:700;'+cls+'">'+(money[i]>=0?'+':'')+money[i].toFixed(2)+'</td></tr>';
+  });
+  html+='</table>';
+
+  // Positives note (they're already included in points above)
+  if(S.usePos){
+    html+='<p style="font-size:12px;color:var(--muted);margin-top:4px;">* Positives are included in points total at $'+S.ptVal+' per point.</p>';
+  }
+
+  det.innerHTML=html;
+}
+
+// ── RESUME BANNER ─────────────────────────────────────────────────────────────
+(function(){
+  if(loadState()){
+    unlockTabs();
+    const banner=document.createElement('div');
+    banner.style.cssText='background:var(--gold-bg);border:1px solid var(--gold);border-radius:8px;padding:10px 13px;margin-bottom:11px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:7px;';
+    const msg=document.createElement('span'); msg.style.cssText='font-size:13px;color:var(--gold);font-weight:600;';
+    const ds=S._savedAt?new Date(S._savedAt).toLocaleString():'';
+    msg.textContent='⏱ Round in progress'+(ds?' · '+ds:'')+'. Resume or start new?';
+    const bR=document.createElement('div'); bR.style.cssText='display:flex;gap:6px;';
+    const rB=document.createElement('button'); rB.textContent='Resume';
+    rB.style.cssText='font-size:12px;padding:5px 10px;background:var(--gold-bg);color:var(--gold);border-color:var(--gold);font-weight:600;';
+    rB.onclick=()=>{ banner.remove(); go('entry'); };
+    const nB=document.createElement('button'); nB.textContent='New round'; nB.style.cssText='font-size:12px;padding:5px 10px;';
+    nB.onclick=()=>{
+      clearSave();
+      Object.assign(S,{players:[{name:'',hcp:0},{name:'',hcp:0},{name:'',hcp:0}],si:SI.slice(),par:PAR.slice(),holes:18,ptVal:0.25,use900:false,usePos:false,started:false,scores:{},curHole:1});
+      ['entry','scorecard','skins','group','summary'].forEach(t=>document.querySelector('[data-tab="'+t+'"]').disabled=true);
+      go('setup'); renderPInputs(); renderSiGrid(); banner.remove();
+    };
+    bR.appendChild(rB); bR.appendChild(nB); banner.appendChild(msg); banner.appendChild(bR);
+    document.querySelector('.wrap').insertBefore(banner,document.querySelector('.tabs').nextSibling);
+  }
+})();
+
+})();
+</script>
+</body>
+</html>
